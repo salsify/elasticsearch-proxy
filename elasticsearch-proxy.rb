@@ -1,19 +1,35 @@
 require 'rubygems'
 require 'sinatra'
-require 'net/http'
+require 'sinatra/synchrony'
+require 'faraday'
+
+Faraday.default_adapter = :em_synchrony
+
+@@bulk_mutex = Mutex.new
 
 post '/*_bulk' do |path|
   content_type :json
 
   request.body.rewind
 
-  net = Net::HTTP.new('localhost', 9200)
-  req = Net::HTTP::Post.new("#{path}_bulk")
+  conn = Faraday.new(url: 'http://localhost:9200')
 
-  response = net.start do |http|
-    http.request(req, request.body.read)
+  @@bulk_mutex.synchronize do
+    response = conn.post do |req|
+      req.url "#{path}_bulk"
+      req.headers['Content-Type'] = 'application/json'
+      req.body = request.body.read
+    end
   end
 
-  status response.code
+  status response.status
   response.body
 end
+
+get '/*' do |path|
+  conn = Faraday.new(url: 'http://localhost:9200')
+  response = conn.get path
+  status response.status
+  response.body
+end
+
