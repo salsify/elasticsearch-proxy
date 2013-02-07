@@ -1,2 +1,2 @@
-bonsai-proxy
+elasticsearch-proxy
 ============
